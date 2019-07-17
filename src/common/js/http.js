@@ -4,38 +4,54 @@
 import axios from 'axios';
 import QS from 'qs';
 import Cookies from 'js-cookie';
-import { Message } from 'iview';
+import { Message } from 'element-ui';
 import store from '../../store'//Vuex
+
+export const header = {
+  rootPath: '',
+  NlpPath: '',
+  OAuthManger: '',
+  OAuthUser: '',
+  OAuthLoginOut: '',
+  downLoadUrl: ''
+}
 
 // 环境的切换
 if (process.env.NODE_ENV == 'development') {
   axios.defaults.baseURL = '';
+  header.rootPath = '/lensAiPlat';
+  header.NlpPath = '/enlp';
+  header.OAuthManger = '/authMgr';
+  header.OAuthUser = '/manager';
+  header.OAuthLoginOut = '/auth';
+  header.downLoadUrl = 'http://192.168.1.116:8080'
 
 } else if (process.env.NODE_ENV == 'production') {
-  axios.defaults.baseURL = window.OauthConfig.back_end;
+  axios.defaults.baseURL = window.eNlpConfig.backPath;
+  header.rootPath = window.eNlpConfig.rootPath;
+  header.NlpPath = window.eNlpConfig.NlpPath;
+  header.OAuthManger = window.eNlpConfig.OAuthManger;
+  header.OAuthUser = window.eNlpConfig.OAuthUser;
+  header.OAuthLoginOut = window.eNlpConfig.OAuthLoginOut;
+  header.downLoadUrl = window.eNlpConfig.downLoadUrl
 }
-export let programHeader = Header;
 
 // 请求超时时间
-axios.defaults.timeout = 10000;
+axios.defaults.timeout = 30000;
 // post请求头
-axios.defaults.headers.post['Content-Type'] = 'application/x-www-form-urlencoded;charset=UTF-8';
+axios.defaults.headers.post['Content-Type'] = 'application/json';
 
 // 请求拦截器
 axios.interceptors.request.use(
-  // config => {
-  //   let token = Cookies.get('access_token');
-  //   let code = Cookies.get('token_code');
-
-  //   if (!token && !code) {
-  //     location.href = Header.login_url;
-  //   }
-  //   config.headers.Authorization = 'bearer' + ' ' + token;
-  //   return config;
-  // },
-  // error => {
-  //   return Promise.error(error);
-  // }
+  config => {
+    let token = window.localStorage.getItem('token');
+    config.headers.Authorization = 'Bearer ' + token;
+    config.timeout = 10 * 1000;  // 请求超时时间
+    return config;
+  },
+  error => {
+    return Promise.error(error);
+  }
 );
 
 // 响应拦截器
@@ -48,23 +64,26 @@ axios.interceptors.response.use(
   },
   // 服务器状态码不是200的情况
   error => {
-    console.error(error);
-    console.log(error.response);
-    if (error.response.data) {
-      if (error.response.data.error == "invalid_grant" || error.response.data.error == "invalid_token") {
-        //当code重复时 err:invalid_grant
-        alert('err')
-        location.href = Header.login_url;
+    console.log(error.response)
+
+    if (error && error.response) {
+      let res = {}
+      res.code = error.response.status;
+      if (res.code == 401 || res.code == 403) {
+        //本地调试回调地址
+        window.location.href = header.OAuthLoginOut + '/logout?redirect_uri=' + window.location.origin + window.location.pathname + '&access_token=' + window.localStorage.getItem('token');
+        //回调到线上
+        // window.location.href = header.OAuthLoginOut + '/logout?redirect_uri=http://nlp.elensdata.com/elensLangAi' + '&access_token=' + window.localStorage.getItem('token');     
+        window.localStorage.removeItem('token');
+        window.localStorage.removeItem('user_name');
+        window.localStorage.removeItem('userId');
       }
-      if (error.response.data.error == 'access_denied' || error.response.data.error == 'unauthorized') {
-        Message.error({
-          content: '对不起,暂无相关权限！请重新登录或联系管理员重试',
-          duration: 5
-        });
-        return Promise.reject(error.response);
-      }
+      // res.msg = throwErr(error.response.status, error.response) //throwErr 捕捉服务端的http状态码 定义在utils工具类的方法
+      // return Promise.reject(res)
     }
-    // if (error.response.status) {}
+
+    // return Promise.reject(error)
+    // if (error.response.status) { }
   }
 );
 //状态码
@@ -83,19 +102,25 @@ export function get(url, params) {
       })
       .then(res => {
         if (res.data.code != SUCCESS_CODE) {
-          Message.warning({
-            content: `服务器错误,状态码${res.data.code}`,
-            duration: 5
+          Message({
+            showClose: true,
+            message: `服务器错误,状态码${res.data.code}`,
+            type: 'warning',
+            duration: 2000
           });
+          store.commit('setLoading', false);
           return
         }
         resolve(res.data);
       })
       .catch(err => {
-        Message.error({
-          content: `连接服务器失败,请刷新后重试!`,
-          duration: 5
+        Message({
+          showClose: true,
+          message: `服务器错误,请刷新后重试!`,
+          type: 'error',
+          duration: 2000
         });
+        store.commit('setLoading', false);
         reject(err);
       });
   });
@@ -115,12 +140,14 @@ export function post(url, params) {
         }
       })
       .then(res => {
-        //  console.log(res.data.code);
+        console.log(res.data.code != SUCCESS_CODE);
         if (res.data.code != SUCCESS_CODE) {
           Message.warning({
-            content: `服务器错误,状态码${res.data.code}`,
-            duration: 5
+            showClose: true,
+            message: `服务器错误，状态码${res.data.code}`,
+            type: 'warning'
           });
+          store.commit('setLoading', false);
           return
         }
         resolve(res.data);
@@ -130,6 +157,7 @@ export function post(url, params) {
           content: `连接服务器失败,请刷新后重试!`,
           duration: 5
         });
+        store.commit('setLoading', false);
         reject(err);
       });
   });
@@ -159,9 +187,111 @@ export function postFormData(url, params) {
         }
       })
       .then(res => {
+        if (res.data.code != SUCCESS_CODE) {
+          Message({
+            showClose: true,
+            message: `服务器错误,状态码${res.data.code}`,
+            type: 'warning',
+            duration: 2000
+          });
+          store.commit('setLoading', false);
+          return
+        }
         resolve(res.data);
       })
       .catch(err => {
+        store.commit('setLoading', false);
+        reject(err);
+      });
+  });
+}
+
+export function postValidateFormData(url, params) {
+  return new Promise((resolve, reject) => {
+    axios
+      .post(url, params, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+      .then(res => {
+        resolve(res.data);
+      })
+      .catch(err => {
+        reject(err);
+      });
+  });
+}
+
+//
+export function postUserInfo(url, params = {}) {
+  return new Promise((resolve, reject) => {
+    axios.post(url, QS.stringify(params), {
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': "application/x-www-form-urlencoded;charset=UTF-8"
+      }
+    })
+      .then(res => {
+        if (res.data.code != SUCCESS_CODE) {
+          Message.error(`${res.data.message}`, '提示', {
+            confirmButtonText: '确定',
+          });
+        }
+        resolve(res.data);
+      })
+      .catch(err => {
+        if (err.code != 401 && err.code != 403) {
+          MessageBox.alert(`连接服务器失败,请刷新后重试!`, '报错', {
+            confirmButtonText: '确定',
+          });
+        }
+        reject(err);
+      });
+  });
+}
+
+export function postValidate(url, params) {
+  return new Promise((resolve, reject) => {
+    axios
+      .post(url, params, {
+        headers: {
+          'Content-Type': 'application/json',
+          // 'Accept': '*/*'
+        }
+      })
+      .then(res => {
+        resolve(res.data);
+      })
+      .catch(err => {
+        store.commit('setLoading', false);
+        reject(err);
+      });
+  });
+}
+
+/**
+ * get方法，对应get请求
+ * @param {String} url [请求的url地址]
+ * @param {Object} params [请求时携带的参数]
+ */
+export function getMemory(url, params) {
+  return new Promise((resolve, reject) => {
+    axios
+      .get(url, {
+        params: params
+      })
+      .then(res => {
+        resolve(res.data);
+      })
+      .catch(err => {
+        Message({
+          showClose: true,
+          message: `服务器错误,请刷新后重试!`,
+          type: 'error',
+          duration: 2000
+        });
+        store.commit('setLoading', false);
         reject(err);
       });
   });

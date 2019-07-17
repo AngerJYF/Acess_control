@@ -1,4 +1,9 @@
-
+/*
+ * @Author: fengchaoran 
+ * @Date: 2018-12-28 10:33:52 
+ * @Last Modified by: 冯超然
+ * @Last Modified time: 2019-06-14 14:35:12
+ */
 import moment from "moment";
 /**
  * 遍历返回数据，动态next()第一个满足条件的路由
@@ -120,8 +125,8 @@ export function getMonthArea(arrDate) {
   let currentDate = new Date();
   let currentDateN = new Date();
   return {
-    from:currentDate.setDate(currentDate.getMonth()+arrDate[0]),
-    to:currentDateN.setDate(currentDateN.getMonth()+arrDate[0])
+    from: currentDate.setDate(currentDate.getMonth() + arrDate[0]),
+    to: currentDateN.setDate(currentDateN.getMonth() + arrDate[0])
   }
 }
 
@@ -188,9 +193,61 @@ function getAttr(obj, itemName, result) {
         return result
       }
       else
-        return getAttr(obj[key], itemName,result)
+        return getAttr(obj[key], itemName, result)
     }
     else
       continue
   }
 }
+
+export function getParams(url, name) {
+  url = url + "";
+  let regstr = "/(\\?|\\&)" + name + "=([^\\&]+)/";
+  let reg = eval(regstr);//eval可以将 regstr字符串转换为 正则表达式
+  let result = url.match(reg);//匹配的结果是：result[0]=?sid=22 result[1]=sid result[2]=22。所以下面我们返回result[2]
+
+  if (result && result[2]) {
+    alert(1)
+    alert(result[1])
+    alert(result[2])
+    return result[2];
+  } else {
+    return '';
+  }
+}
+
+export const colorData = [
+  "#71C671",
+  "#7583EA",
+  "#A2B5CD",
+  "#FFC125",
+  "#757575",
+  "#7D9EC0",
+  // "#2DC7C9",
+  "#EE9572",
+  "#6072F4",
+  "#FFD700",
+  "#FFD39B",
+  "#EE9572",
+  "#E6E6FA",
+  "#5DA2FE",
+  "#E3B88D",
+  // "#FF6D07",
+  "#29CFFB",
+  "#EE9572",
+  "#EEC900",
+  "#EEB423",
+  "E066FF",
+  "#DA70D6",
+  "#D2691E",
+  "#CAFF70",
+  "#BCD2EE",
+  "#A2B5CD",
+  "#8B7E66",
+  "#8A2BE2",
+  "#836FFF",
+  "#7D9EC0",
+  "#757575",
+  "#551A8B"
+]
+
